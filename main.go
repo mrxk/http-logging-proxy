@@ -2,12 +2,12 @@ package main
 
 import (
 	"bytes"
+	"crypto/tls"
 	"encoding/base64"
 	"flag"
 	"fmt"
-	"golang.org/x/text/transform"
-	"golang.org/x/text/unicode/norm"
 	"log"
+	"net"
 	"net/http"
 	"net/http/httputil"
 	"net/url"
@@ -15,6 +15,9 @@ import (
 	"sync"
 	"sync/atomic"
 	"time"
+
+	"golang.org/x/text/transform"
+	"golang.org/x/text/unicode/norm"
 )
 
 type bufferedResponseWriter struct {
@@ -94,6 +97,17 @@ func main() {
 		log.Fatal(err)
 	}
 	proxy := httputil.NewSingleHostReverseProxy(url)
+
+	var InsecureTransport http.RoundTripper = &http.Transport{
+		Dial: (&net.Dialer{
+			Timeout:   30 * time.Second,
+			KeepAlive: 30 * time.Second,
+		}).Dial,
+		TLSClientConfig:     &tls.Config{InsecureSkipVerify: true},
+		TLSHandshakeTimeout: 10 * time.Second,
+	}
+	proxy.Transport = InsecureTransport
+
 	http.HandleFunc("/", makeLogAndForwardHandler(proxy, *encoding))
 	err = http.ListenAndServe(":"+*listenPort, nil)
 	if err != nil {
