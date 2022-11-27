@@ -2,11 +2,10 @@ package main
 
 import (
 	"bytes"
+	"crypto/tls"
 	"encoding/base64"
 	"flag"
 	"fmt"
-	"golang.org/x/text/transform"
-	"golang.org/x/text/unicode/norm"
 	"log"
 	"net/http"
 	"net/http/httputil"
@@ -15,6 +14,9 @@ import (
 	"sync"
 	"sync/atomic"
 	"time"
+
+	"golang.org/x/text/transform"
+	"golang.org/x/text/unicode/norm"
 )
 
 type bufferedResponseWriter struct {
@@ -81,11 +83,17 @@ func makeLogAndForwardHandler(proxy *httputil.ReverseProxy, encoding string) fun
 	}
 }
 
+const encodingHelp = `Output encoding.  One of none, base64, or strip.  None does no encoding
+(dangerous if not redirecting output to a file as terminals may become confused
+when images are printed).  Base64 base64 encodes responsees.  Strip removes
+characters that may confuse terminals.`
+
 func main() {
 	log.SetOutput(os.Stdout)
 	listenPort := flag.String("listenPort", "9999", "Listen Port")
 	target := flag.String("target", "http://localhost:8500", "Target root url")
-	encoding := flag.String("encoding", "strip", "Output encoding.  One of none, base64, or strip.  None does no encoding\n        (dangerous if not redirecting output to a file as terminals may become\n        confused when images are printed).  Base64 base64 encodes responsees.  Strip\n        removes characters that may confuse terminals.  Default: strip")
+	encoding := flag.String("encoding", "strip", encodingHelp)
+	insecure := flag.Bool("insecure", false, "Skip certificate verification when using SSL")
 	flag.Parse()
 	log.Println("Listening on port ", *listenPort)
 	log.Println("Forwarding to ", *target)
@@ -94,6 +102,9 @@ func main() {
 		log.Fatal(err)
 	}
 	proxy := httputil.NewSingleHostReverseProxy(url)
+	if *insecure {
+		proxy.Transport = &http.Transport{TLSClientConfig: &tls.Config{InsecureSkipVerify: true}}
+	}
 	http.HandleFunc("/", makeLogAndForwardHandler(proxy, *encoding))
 	err = http.ListenAndServe(":"+*listenPort, nil)
 	if err != nil {
