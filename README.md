@@ -26,7 +26,7 @@ Usage of http-logging-proxy:
 ## Conainterized Usage
 Build the image:
 ```
-ubuntu@ip-172-31-28-115:~/code/http-logging-proxy$ make build
+ubuntu@ip-172-31-28-115:~/code/http-logging-proxy$ make docker
 docker build -t http-logging-proxy .
 Sending build context to Docker daemon  73.22kB
 Step 1/8 : FROM golang:1.18-buster AS builder
